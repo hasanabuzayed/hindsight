@@ -19,6 +19,7 @@ Hindsight that copies the extension in — see [Packaging](#packaging-an-extensi
 | [`supabase-tenant`](./supabase-tenant) | `TENANT` | Validates [Supabase](https://supabase.com) Auth JWTs and gives each user their own Postgres schema |
 | [`static-keys-tenant`](./static-keys-tenant) | `TENANT` | Authenticates static API keys from env vars and gives each user their own Postgres schema |
 | [`bank-llm-routing`](./bank-llm-routing) | `LLM_REQUEST` | Picks the LLM and key of each call by bank-id and operation pattern — per-customer gateway keys, or a model per bank or operation |
+| [`bifrost`](./bifrost) | `LLM_REQUEST` | Labels each call with its bank and operation for [Bifrost](https://github.com/maximhq/bifrost) metrics and logs, and scopes Bifrost's semantic cache to the bank |
 
 Extensions maintained outside this repository can be listed here too —
 [open a feature request](https://github.com/vectorize-io/hindsight/issues/new?template=feature_request.yml)
