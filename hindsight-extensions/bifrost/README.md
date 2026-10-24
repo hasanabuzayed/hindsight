@@ -31,3 +31,26 @@ Give the API and every worker the same variables. Batch retain
 uv sync
 uv run pytest tests -v
 ```
+
+## Gorse MCP tools (experimental)
+
+`GorseMCPExtension` adds three read-only tools to Hindsight's MCP server, so a shop agent gets
+customer memory and product recommendations from one endpoint (`/mcp/<bank_id>/`):
+
+| Tool | Gorse call |
+| --- | --- |
+| `gorse_recommend(user_id, n, category?)` | `GET /api/recommend/{user_id}` |
+| `gorse_similar_items(item_id, n, recommender?, category?)` | `GET /api/item-to-item/{recommender}/{item_id}` (default `neighbors`) |
+| `gorse_popular(n, recommender?, category?)` | `GET /api/non-personalized/{recommender}` (default `popular`) |
+
+It registers nothing unless the flag is `true`:
+
+```
+HINDSIGHT_API_MCP_EXTENSION=hindsight_ext_bifrost:GorseMCPExtension
+HINDSIGHT_API_MCP_GORSE_ENABLED=true
+HINDSIGHT_API_MCP_GORSE_URL=http://gorse-server:8087
+HINDSIGHT_API_MCP_GORSE_API_KEY=...
+```
+
+`n` is capped at 50, ids are URL-quoted, and recommender names must match `[A-Za-z0-9_-]{1,64}`.
+Feedback writes stay on the NATS `WOO` stream and gorse-sink.
