@@ -1,15 +1,18 @@
 #!/usr/bin/env node
 /**
- * hindsight-seed — MANUAL control command (escape hatch): `seed` forces a background backfill of a
- * repo's bank now; `decline` opts a repo out of auto-seeding. Normal seeding is automatic and
- * deterministic via the Claude SessionStart hook (core/session-start.ts) — this CLI is not part of
- * that automatic path; it's for forcing/opting-out by hand.
+ * hindsight-seed — manual control command.
+ * The `seed` argument forces an immediate background backfill of a repository bank.
+ * The `decline` argument opts a repository out of auto-seeding.
+ * The Claude SessionStart hook in `core/session-start.ts` runs normal seeding automatically and deterministically.
+ * This CLI is not part of that automatic path.
+ * It is for forcing/opting-out by hand.
  *
- * Claude-Code-only for now: the harness is hardcoded to "claude-code" below, since this CLI is only
- * ever invoked from the Claude Code SessionStart flow (Task 10b). If it's ever driven from another
- * harness's context — especially one with a non-default `bankIdTemplate` or a `harnesses.<name>`
- * override in the config — the hardcoded harness would resolve the wrong bank. Generalizing would
- * need a real `--harness` flag, not added here.
+ * This command currently supports only Claude Code.
+ * The file sets the harness to "claude-code" below.
+ * The Claude Code SessionStart flow in Task 10b is the only caller of this CLI.
+ * If another harness runs this CLI with a non-default `bankIdTemplate`, the hardcoded harness will resolve the wrong bank.
+ * A non-default `harnesses.<name>` override in the config causes the same error.
+ * A generalization needs a real `--harness` flag, not added here.
  */
 import { loadConfig } from "./core/config";
 import { deriveBankIdOrSkip } from "./core/bank";

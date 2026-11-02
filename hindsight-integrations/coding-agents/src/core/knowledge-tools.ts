@@ -64,12 +64,11 @@ const NON_DESTRUCTIVE_WRITE_ANNOTATIONS: ToolSafetyAnnotations = {
  * anything, and silently absorbs the memory instead of crediting it.
  */
 const CREDIT_REMINDER =
-  "Crediting is mandatory, not a judgement call: if anything these results contribute reaches your " +
-  "reply — quoted, paraphrased, or merely confirming what you were going to say — open that part " +
-  'with "> 🧠 **From Hindsight memory (<page>)** — <the specific facts you drew on>". Rewriting a ' +
-  "snippet in your own words does not make it yours. If none of them bear on the turn, ignore them " +
-  "silently — an unhelpful search needs no mention. These are past records: check a claim that " +
-  "something was fixed or works against the code before relying on it.";
+  "Crediting is mandatory. If results inform your reply, quoted or paraphrased, open that part with " +
+  '"> 🧠 **From Hindsight memory (<page>)** — <the specific facts you drew on>". ' +
+  "Rewriting a snippet in your own words does not make it yours. " +
+  "If results do not apply to the turn, ignore them silently because an unhelpful search needs no mention. " +
+  "Before you rely on a past record, compare claims against the code.";
 
 export interface ToolSpec {
   name: string;
@@ -135,11 +134,11 @@ export function buildKnowledgeTools(
     {
       name: "hindsight_sync_status",
       description:
-        "Report whether this repo's memory bank is in sync: gitlog seed present, how much recent " +
-        "history has been deepened with full diffs, conversations ingested, knowledge pages " +
-        "created, and extractions still running. `synced: true` means the seeded memory is fully " +
-        "queryable. Ingestion is automatic and background — if not synced, it is in progress; " +
-        "nothing to run.",
+        "Show sync status for this repository memory bank. Report the git log seed, deepened " +
+        "history, ingested conversations, created pages, and active extractions. `synced: true` " +
+        "means that the seeded memory is queryable. Ingestion runs automatically in the " +
+        "background. If the bank is not in sync, ingestion is in progress and you do not need to run a " +
+        "command.",
       inputSchema: {},
       annotations: READ_ONLY_ANNOTATIONS,
       handler: async () => {
@@ -153,10 +152,10 @@ export function buildKnowledgeTools(
     {
       name: "hindsight_diagnose",
       description:
-        "Report safe Hindsight runtime diagnostics for this coding-agent session: resolved bank, " +
-        "workspace, harness, config location, API endpoint, and non-secret environment overrides. " +
-        "Use this when memory, hooks, MCP tools, or configuration appear not to work. Tokens and " +
-        "other secret values are never returned.",
+        "Report safe runtime diagnostics for this session. The report includes the bank, " +
+        "workspace, harness, config path, API endpoint, and environment overrides. If memory, " +
+        "hooks, MCP tools, or configuration do not work, run this tool. The tool never returns " +
+        "tokens or other secret values.",
       inputSchema: {},
       annotations: READ_ONLY_ANNOTATIONS,
       handler: async (_args: Record<string, never>) => {
@@ -204,15 +203,15 @@ export function buildKnowledgeTools(
     {
       name: "hindsight_search_knowledge_pages",
       description:
-        "Search this repository's Hindsight knowledge pages for content relevant to a query — " +
-        "hybrid full-text + semantic search, server-side. Call this when the user's question may " +
-        "be answered by the project's accumulated knowledge (architecture, conventions, decisions, " +
-        "initiatives) rather than by reading code. Returns ranked pages with a relevance snippet; " +
+        "Search repository knowledge pages for content relevant to a query. The server runs " +
+        "hybrid full-text and semantic search. If project knowledge can answer a question, call " +
+        "this tool instead of reading code. Project knowledge includes architecture, conventions, " +
+        "decisions, and initiatives. The tool returns ranked pages with snippets. Use " +
         // Same sentence the payload carries, from the same constant: two copies of a rule this
         // fiddly drift apart, and the description is what a host shows when the tool is listed.
-        "read a full page with hindsight_read_knowledge_page. " +
+        "hindsight_read_knowledge_page to read a full page. " +
         crediting,
-      inputSchema: { query: z.string().describe("what to look for") },
+      inputSchema: { query: z.string().describe("Text to search for") },
       annotations: READ_ONLY_ANNOTATIONS,
       handler: async (args: { query: string }) => {
         try {
@@ -248,12 +247,11 @@ export function buildKnowledgeTools(
     {
       name: "hindsight_list_knowledge_pages",
       description:
-        "List this repository's Hindsight knowledge pages — curated, continuously-updated " +
-        "summaries of the project's durable knowledge (architecture, components, conventions, key " +
-        "decisions, and in-flight initiatives). Returns each page's id, title, and a one-line " +
-        "description of what it covers. Call this at the start of any non-trivial task, and again " +
-        "periodically in long sessions, to see what the project already knows before you read code " +
-        "or ask the user. The list changes as work is captured, so re-check it occasionally.",
+        "List repository knowledge pages. These pages summarize project architecture, components, " +
+        "conventions, decisions, and initiatives. The tool returns the id, title, and description " +
+        "for each page. At the start of a task, call this tool to see stored knowledge before you " +
+        "read code. Call this tool again in long sessions because the list changes when you record " +
+        "work.",
       inputSchema: {},
       annotations: READ_ONLY_ANNOTATIONS,
       handler: guarded(async () => client.listPages()),
@@ -261,12 +259,12 @@ export function buildKnowledgeTools(
     {
       name: "hindsight_read_knowledge_page",
       description:
-        "Read the full content of one knowledge page by its id (from " +
-        "hindsight_list_knowledge_pages). Call this whenever a listed page is relevant to what " +
-        "you're about to do — e.g. read Conventions before writing new code, Component map before " +
-        "changing a subsystem, or an initiative's page before continuing that feature. A page may " +
-        "contain [[page:<id>]] links to related pages; follow one by calling this tool again with " +
-        "that id. Prefer reading a page over re-deriving the same understanding from source.",
+        "Read the full content of one knowledge page by its id from " +
+        "hindsight_list_knowledge_pages. If a listed page applies to your task, call this tool before " +
+        "you start. For example, read Conventions before writing code, or read an initiative page " +
+        "before continuing a feature. A page can include [[page:<id>]] links to related pages. To " +
+        "open one related page, call this tool again with that id. Prefer reading a page rather than " +
+        "re-deriving information from source files.",
       inputSchema: { page_id: z.string() },
       annotations: READ_ONLY_ANNOTATIONS,
       handler: guarded(async ({ page_id }) => client.getPage(page_id)),
@@ -274,12 +272,12 @@ export function buildKnowledgeTools(
     {
       name: "hindsight_reflect",
       description:
-        "Deep memory reasoning: an agentic synthesis over this repository's FULL memory (git " +
-        "decisions, past sessions, ingested knowledge) that answers WHY questions — the past " +
-        "decision and exact rule/values that explain a behavior, bug, or convention. Slower than " +
-        "hindsight_search_knowledge_pages (several seconds): reach for it when pages are too " +
-        "shallow and you need the root cause or the decided literals. When the answer informs " +
-        'your reply, credit it visibly with a blockquote header: "> 🧠 **From Hindsight memory** — <summary>".',
+        "Reason deeply across repository memory. The tool synthesizes git decisions, past " +
+        "sessions, and ingested knowledge to answer why questions. It finds the past decision and " +
+        "exact rule/values that explain a behavior. This tool is slower than " +
+        "hindsight_search_knowledge_pages. If knowledge pages are too shallow, call this tool for the " +
+        "root cause. When the answer informs your reply, credit the memory with this blockquote " +
+        'header: "> 🧠 **From Hindsight memory** — <summary>".',
       inputSchema: { query: z.string().describe("the question to reason over memory about") },
       annotations: READ_ONLY_ANNOTATIONS,
       handler: guarded(async ({ query }: { query: string }) =>
@@ -292,27 +290,24 @@ export function buildKnowledgeTools(
     {
       name: "hindsight_capture_initiative",
       description:
-        "Record a new feature or initiative as a tracked knowledge page, so future sessions know it " +
-        "exists and can build on it — and keep that page tracking the plan as it moves.\n\n" +
+        "Record a new feature or initiative as a tracked knowledge page. This records the " +
+        "initiative so future sessions can use it.\n\n" +
         "WHEN TO CALL:\n" +
-        "- Starting one: right after the user approves a plan or finishes brainstorming a new feature/" +
-        "capability and you are about to start implementing — BEFORE you write any code. Leave " +
-        "relates_to_page_id empty.\n" +
-        "- Plan changed: call it AGAIN — mid-implementation is fine and expected — whenever the goal, " +
-        "scope, or rationale of an initiative you already captured materially changes (an approach is " +
-        "dropped, scope grows or shrinks, the why is rewritten). Pass relates_to_page_id = that " +
-        "initiative's page id so the change lands on the existing page. Never mint a second page for the " +
-        "same initiative.\n\n" +
-        "WHEN TO SKIP: bug fixes, small tweaks, refactors, chores, and trivial course-corrections that " +
-        "leave the goal intact are not initiatives — skip them.\n\n" +
-        "- title: short, specific name (e.g. 'Newsletter refinement chat'). On a recapture, reuse the " +
-        "initiative's existing title.\n" +
-        "- summary: 2-3 sentences on what you're building and why — the CURRENT intent, not the " +
-        "originally approved plan (on a recapture, say what changed and why).\n" +
-        "- relates_to_page_id: leave empty for a new initiative. Set it to an existing initiative's page " +
-        "id — from hindsight_list_knowledge_pages, or the id this tool returned earlier — to record a " +
-        "plan change or an enhancement to it.\n\n" +
-        "Returns the page id. The page is generated for you — you never format one yourself.",
+        "- Starting one: Before you write any code, call this tool after the user approves a plan " +
+        "for a new feature/" +
+        "capability. Leave relates_to_page_id empty.\n" +
+        "- Plan changed: Call it AGAIN whenever the goal, scope, or rationale of an initiative " +
+        "materially changes. A call mid-implementation is fine and expected. Pass relates_to_page_id " +
+        "= that initiative's page id. Never mint a second page for the same initiative.\n\n" +
+        "WHEN TO SKIP: Bug fixes, small tweaks, refactors, chores, and trivial course-corrections " +
+        "are not initiatives. Skip them.\n\n" +
+        "- title: Short, specific name like 'Newsletter refinement chat'. On a recapture, reuse the " +
+        "existing title.\n" +
+        "- summary: State what you build and why in 2-3 sentences. Describe the CURRENT intent, not " +
+        "the first plan. On a recapture, state what changed.\n" +
+        "- relates_to_page_id: Leave empty for a new initiative. Set this parameter to an existing " +
+        "page id from hindsight_list_knowledge_pages to record a plan change.\n\n" +
+        "The tool returns the page id. The server creates the page for you. You never format one yourself.",
       inputSchema: {
         title: z.string(),
         summary: z.string(),
@@ -332,13 +327,12 @@ export function buildKnowledgeTools(
     {
       name: "hindsight_ingest_document",
       description:
-        "Save an external document or a block of durable notes/findings into this repository's " +
-        "memory so it informs future recall and pages. Use for design notes, research, or " +
-        "reference material you want remembered — not for the conversation you're already in " +
-        "(that's captured automatically at session end). This is ALSO the correction mechanism: " +
-        "when you verify that a retrieved memory is wrong or outdated, ingest a document titled " +
-        "'Correction: <topic>' stating what memory claimed, what is actually true, and the " +
-        "evidence — the newer fact supersedes the stale one in future retrieval.",
+        "Save an external document or notes/findings into repository memory for future recall and " +
+        "pages. Use this tool for design notes, research, or reference material, but not for the " +
+        "active conversation. This tool is also the correction mechanism. If a retrieved memory is " +
+        "wrong or outdated, ingest a document titled 'Correction: <topic>'. State what memory " +
+        "claimed, what is actually true, and the evidence. The newer fact supersedes the stale one " +
+        "in future retrieval.",
       inputSchema: { title: z.string(), content: z.string() },
       annotations: NON_DESTRUCTIVE_WRITE_ANNOTATIONS,
       handler: guarded(async ({ title, content }) => {
