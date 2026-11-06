@@ -1519,10 +1519,18 @@ class MemoriesExtension(Extension, ABC):
         file_content_type: str = "",
         file_original_name: str = "",
         expect_content_hash: "str | None" = None,
+        keep_chunk_text: bool = True,
     ) -> None:
         """Store (or replace) a document's bodies: its extracted text, its ordered chunk texts, and
         optionally the original uploaded file. Idempotent by content — re-ingest re-uploads only
         what changed.
+
+        ``keep_chunk_text=False`` is a bank with ``store_document_text`` off: the store keeps each
+        chunk's hash, computed from the text passed here, but not the text, and every chunk reads
+        back as empty — what the SQL path stores. The hashes are what delta retain diffs a re-send
+        against, so they must be those of the real text. A caller restoring a prefix it cannot read
+        back (see ``_store_document_bodies``) passes those chunks as ``""``, and the store keeps
+        their hashes from the record being replaced.
 
         ``chunk_texts`` REPLACES the document's chunk list, so a caller holding only part of a
         document (a retain sub-batch) must send the whole list, not its slice — see
@@ -2332,6 +2340,11 @@ class MemoriesExtension(Extension, ABC):
         """
         raise NotImplementedError
 
+    async def has_pending_consolidation(self, *, conn, fq_table, bank_id: str) -> bool:
+        """Whether the bank has any facts that can still be consolidated."""
+        freshness = await self.consolidation_freshness(conn=conn, fq_table=fq_table, bank_id=bank_id)
+        return bool(freshness.get("pending"))
+
     async def document_memory_counts(self, *, conn, fq_table, bank_id: str, document_ids: list[str]) -> dict[str, int]:
         """Live memory count per document id, for the documents named. Absent = 0."""
         raise NotImplementedError
@@ -3086,6 +3099,25 @@ class MemoriesExtension(Extension, ABC):
             found=_record is not None,
             tags=list(_record["tags"] or []) if _record is not None and "tags" in _record else None,
         )
+
+    async def existing_documents_tags(
+        self, *, conn, fq_table, bank_id: str, document_ids: list[str]
+    ) -> dict[str, list[str] | None]:
+        """document id -> its tags, for the ids that exist; ``None`` when the record exists but
+        carries no tags (same meaning as :meth:`current_document_tags`). Read to check a retain
+        batch's writes into existing documents, so an id left out is a new document.
+
+        Default: :meth:`current_document_tags` per id. Not :meth:`documents_tags`: that one
+        leaves out a record without a "tags" key, so a restricted writer's retain would read it
+        as a new document and be let through (#6327). Postgres reads all the rows at once."""
+        out: dict[str, list[str] | None] = {}
+        for document_id in document_ids:
+            current = await self.current_document_tags(
+                conn=conn, fq_table=fq_table, bank_id=bank_id, document_id=document_id
+            )
+            if current.found:
+                out[document_id] = current.tags
+        return out
 
     async def documents_tags(self, *, conn, fq_table, bank_id: str, document_ids: list[str]) -> dict[str, list[str]]:
         """document id -> the tags it carries, for the ids that exist. Read to decide whether a

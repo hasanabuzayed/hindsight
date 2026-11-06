@@ -4,7 +4,6 @@ Shared by the HTTP import/export endpoints and by ``MemoryEngine``, which applie
 server's default template (``HINDSIGHT_API_DEFAULT_BANK_TEMPLATE``) to every new bank.
 """
 
-import re
 from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
@@ -17,6 +16,7 @@ from hindsight_api.engine.response_models import (
     ConsolidationStrategySpec,
     FieldWithDefault,
     MentalModelTrigger,
+    check_mental_model_id,
 )
 from hindsight_api.engine.retain.entity_labels import LabelGroup, migrate_entity_labels_input
 from hindsight_api.extensions.operation_validator import BankWriteOperation
@@ -32,7 +32,12 @@ BANK_TEMPLATE_CURRENT_VERSION = "1"
 class BankTemplateMentalModel(BaseModel):
     """A mental model definition within a bank template manifest."""
 
-    id: str = Field(description="Unique ID for the mental model (alphanumeric lowercase with hyphens)")
+    id: str = Field(
+        description=(
+            "Unique ID for the mental model (same rules as a bank id: at most 192 bytes of UTF-8, "
+            "no '/' and no control characters)"
+        )
+    )
     name: str = Field(description="Human-readable name for the mental model")
     source_query: str = Field(description="The query to run to generate content")
     tags: list[str] = FieldWithDefault(list, description="Tags for scoped visibility")
@@ -42,11 +47,7 @@ class BankTemplateMentalModel(BaseModel):
     @field_validator("id")
     @classmethod
     def validate_id(cls, v: str) -> str:
-        if not re.match(r"^[a-z0-9][a-z0-9-]*$", v):
-            raise ValueError(
-                f"Mental model id '{v}' must be alphanumeric lowercase with hyphens, starting with a letter or digit."
-            )
-        return v
+        return check_mental_model_id(v)
 
 
 class BankTemplateConfig(BaseModel):
@@ -187,8 +188,9 @@ class BankTemplateConfig(BaseModel):
         description=(
             "Default reflect options for this bank "
             '(e.g. {"reflect_search_observations_max_tokens": 3000, "reflect_search_observations_include_entities": false}). '
-            "Applied to every reflect in the bank -- API, MCP and mental-model refresh -- whenever "
-            "the request (or the model's trigger) leaves the option unset."
+            "Applied to every reflect request in the bank (API and MCP) that leaves the option unset. "
+            "Mental-model refreshes do not read it: they take these options from their own trigger, "
+            "defaulted per bank by knowledge_page_default_trigger."
         ),
     )
     mental_model_min_refresh_interval_seconds: int | None = Field(
